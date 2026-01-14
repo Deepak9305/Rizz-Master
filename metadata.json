@@ -1,0 +1,7 @@
+{
+  "name": "Rizz Master AI",
+  "description": "A world-class social coach and Rizz expert to help you win on dating apps with witty, charming, and chaotic replies.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
