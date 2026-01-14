@@ -25,11 +25,13 @@ const GoogleIcon = () => (
 );
 
 const LoginPage: React.FC = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,28 +41,31 @@ const LoginPage: React.FC = () => {
     }
     setIsLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
     
-    // Attempt sign in (if user exists) or sign up (if new)
-    // For simplicity in this demo, we'll try sign in first
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      // If login fails, try signing up
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (signUpError) {
-        setErrorMsg(signUpError.message);
+    try {
+      if (isSignUp) {
+        // Sign Up Flow
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setSuccessMsg("Account created! Check your email to confirm.");
       } else {
-        alert("Check your email for the confirmation link!");
+        // Sign In Flow
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        // Successful login will be handled by the onAuthStateChange in App.tsx
       }
+    } catch (error: any) {
+      setErrorMsg(error.message || "Authentication failed");
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handleGoogleLogin = async () => {
@@ -72,7 +77,7 @@ const LoginPage: React.FC = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin // Redirect back to this app
+        redirectTo: window.location.origin
       }
     });
     if (error) setErrorMsg(error.message);
@@ -101,6 +106,12 @@ const LoginPage: React.FC = () => {
                 {errorMsg}
               </div>
             )}
+            {successMsg && (
+              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm text-center">
+                {successMsg}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-white/50 mb-2">Email</label>
               <input 
@@ -132,9 +143,18 @@ const LoginPage: React.FC = () => {
               disabled={isLoading || isGoogleLoading}
               className="w-full rizz-gradient py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-4 md:mt-6"
             >
-              {isLoading ? "Loading..." : "Enter Rizz Master"}
+              {isLoading ? "Please wait..." : (isSignUp ? "Sign Up" : "Log In")}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <button 
+              onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(''); setSuccessMsg(''); }}
+              className="text-white/50 hover:text-white text-sm transition-colors"
+            >
+              {isSignUp ? "Already have an account? Log In" : "Need an account? Sign Up"}
+            </button>
+          </div>
 
           <div className="flex items-center gap-4 my-6 relative z-10">
             <div className="h-px bg-white/10 flex-1" />

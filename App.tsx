@@ -17,6 +17,7 @@ const App: React.FC = () => {
   // Auth State
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   // App State
   const [mode, setMode] = useState<InputMode>(InputMode.CHAT);
@@ -54,6 +55,7 @@ const App: React.FC = () => {
       } else {
         setProfile(null);
         setSavedItems([]);
+        setDbError(null);
       }
     });
 
@@ -75,6 +77,7 @@ const App: React.FC = () => {
   // 3. Load User Data from Supabase
   const loadUserData = async (userId: string) => {
     if (!supabase) return;
+    setDbError(null);
 
     // Fetch Profile
     let { data: profileData, error } = await supabase
@@ -83,15 +86,26 @@ const App: React.FC = () => {
       .eq('id', userId)
       .single();
 
-    if (error && error.code === 'PGRST116') {
-      // Profile doesn't exist, create it
-      const { data: newProfile, error: createError } = await supabase
-        .from('profiles')
-        .insert([{ id: userId, email: session?.user.email }])
-        .select()
-        .single();
-      
-      if (!createError) profileData = newProfile;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Profile doesn't exist, create it
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([{ id: userId, email: session?.user.email }])
+          .select()
+          .single();
+        
+        if (!createError) {
+           profileData = newProfile;
+        } else {
+           console.error("Error creating profile:", createError);
+           setDbError("Failed to create user profile. Please check database permissions.");
+        }
+      } else {
+        // likely table doesn't exist or connection issue
+        console.error("Error loading profile:", error);
+        setDbError(`Database Error: ${error.message}. Did you run the SQL setup script?`);
+      }
     } else if (profileData) {
       // Check for daily reset
       const today = new Date().toISOString().split('T')[0];
@@ -108,13 +122,13 @@ const App: React.FC = () => {
     setProfile(profileData);
 
     // Fetch Saved Items
-    const { data: savedData } = await supabase
+    const { data: savedData, error: savedError } = await supabase
       .from('saved_items')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     
-    if (savedData) setSavedItems(savedData);
+    if (!savedError && savedData) setSavedItems(savedData);
   };
 
   const handleLogout = async () => {
@@ -305,11 +319,27 @@ const App: React.FC = () => {
   // Loading Profile
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        <svg className="animate-spin h-8 w-8 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+      <div className="min-h-screen flex flex-col items-center justify-center text-white p-4">
+        {dbError ? (
+          <div className="bg-red-900/50 border border-red-500 rounded-2xl p-6 max-w-md text-center">
+            <h2 className="text-xl font-bold text-red-300 mb-2">Setup Required</h2>
+            <p className="text-white/80 mb-4">{dbError}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : (
+          <>
+            <svg className="animate-spin h-8 w-8 text-pink-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-white/50 animate-pulse">Loading Profile...</p>
+          </>
+        )}
       </div>
     );
   }
