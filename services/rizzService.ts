@@ -2,7 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RizzResponse, BioResponse } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const SYSTEM_INSTRUCTION = `Act as a world-class social coach and "Rizz" expert. 
 Your goal is to help users generate witty, charming, and high-engagement replies for dating apps (Tinder, Hinge, Bumble).
