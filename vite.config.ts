@@ -6,13 +6,34 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+  // Using (process as any).cwd() to resolve TS error in some environments.
   const env = loadEnv(mode, (process as any).cwd(), '');
 
-  // Prioritize VITE_ prefix, fallback to NEXT_PUBLIC_ or plain names
-  const apiKey = env.VITE_API_KEY || env.API_KEY;
-  const supabaseUrl = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL;
-  const supabaseKey = env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY;
+  // Helper to check both .env (env) and system (process.env) variables
+  const getVar = (key: string) => {
+    return env[key] || process.env[key];
+  };
+
+  // Prioritize VITE_ > NEXT_PUBLIC_ > Generic names
+  const apiKey = 
+    getVar('VITE_API_KEY') || 
+    getVar('API_KEY');
+
+  const supabaseUrl = 
+    getVar('VITE_SUPABASE_URL') || 
+    getVar('NEXT_PUBLIC_SUPABASE_URL') || 
+    getVar('SUPABASE_URL');
+
+  const supabaseKey = 
+    getVar('VITE_SUPABASE_ANON_KEY') || 
+    getVar('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 
+    getVar('SUPABASE_ANON_KEY');
+
+  // Debug log for build time (visible in build logs)
+  console.log('Build-time Config Check:');
+  console.log('API_KEY found:', !!apiKey);
+  console.log('SUPABASE_URL found:', !!supabaseUrl);
+  console.log('SUPABASE_KEY found:', !!supabaseKey);
 
   return {
     plugins: [
@@ -44,10 +65,12 @@ export default defineConfig(({ mode }) => {
       })
     ],
     define: {
-      // Explicitly define these as strings so they are replaced at build time
-      'process.env.API_KEY': JSON.stringify(apiKey),
-      'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(supabaseUrl),
-      'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(supabaseKey),
+      // Inject variables into the client code.
+      // Use JSON.stringify to ensure they are valid string literals in the bundle.
+      // Default to empty string to prevent 'undefined' errors, handled in client.
+      'process.env.API_KEY': JSON.stringify(apiKey || ''),
+      'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(supabaseUrl || ''),
+      'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(supabaseKey || ''),
     },
     build: {
       chunkSizeWarningLimit: 1600,

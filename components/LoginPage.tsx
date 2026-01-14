@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Footer from './Footer';
 import { supabase } from '../services/supabaseClient';
@@ -24,7 +23,11 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  onGuestLogin?: () => void;
+}
+
+const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +39,7 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) {
-      setErrorMsg("Supabase not configured. Check API keys.");
+      setErrorMsg("Backend unavailable. Please continue as guest.");
       return;
     }
     setIsLoading(true);
@@ -70,7 +73,7 @@ const LoginPage: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     if (!supabase) {
-      setErrorMsg("Supabase not configured.");
+      setErrorMsg("Backend unavailable. Please continue as guest.");
       return;
     }
     setIsGoogleLoading(true);
@@ -99,6 +102,18 @@ const LoginPage: React.FC = () => {
             </h1>
             <p className="text-white/60 font-medium text-sm md:text-base">Unlock your dating potential.</p>
           </div>
+
+          {!supabase && (
+            <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-center">
+              <p className="text-yellow-200 text-sm font-bold mb-3">Backend Not Configured</p>
+              <button 
+                onClick={onGuestLogin}
+                className="w-full bg-yellow-500 text-black py-3 rounded-lg font-bold text-sm hover:brightness-110 transition-all shadow-lg"
+              >
+                Continue as Guest
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5 relative z-10">
             {errorMsg && (
@@ -140,8 +155,8 @@ const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading || isGoogleLoading}
-              className="w-full rizz-gradient py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-4 md:mt-6"
+              disabled={isLoading || isGoogleLoading || !supabase}
+              className="w-full rizz-gradient py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-4 md:mt-6"
             >
               {isLoading ? "Please wait..." : (isSignUp ? "Sign Up" : "Log In")}
             </button>
@@ -164,7 +179,7 @@ const LoginPage: React.FC = () => {
 
           <button
             onClick={handleGoogleLogin}
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading || isGoogleLoading || !supabase}
             className="w-full bg-white text-gray-900 py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50 relative z-10 flex items-center justify-center gap-3"
           >
             {isGoogleLoading ? "Connecting..." : (

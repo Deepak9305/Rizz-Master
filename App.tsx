@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { generateRizz, generateBio } from './services/rizzService';
 import { InputMode, RizzResponse, BioResponse, SavedItem, UserProfile } from './types';
@@ -8,10 +7,14 @@ import LoginPage from './components/LoginPage';
 import Footer from './components/Footer';
 import PremiumModal from './components/PremiumModal';
 import SavedModal from './components/SavedModal';
+import AdSenseBanner from './components/AdSenseBanner';
 
 const DAILY_CREDITS = 5;
 const REWARD_CREDITS = 5;
 const AD_DURATION = 30;
+
+// TODO: Replace this with your actual Display Ad Unit ID from Google AdSense Dashboard
+const GOOGLE_AD_SLOT_ID = "0000000000"; 
 
 const App: React.FC = () => {
   // Auth State
@@ -74,9 +77,23 @@ const App: React.FC = () => {
     return () => channel.close();
   }, []);
 
-  // 3. Load User Data from Supabase
+  // 3. Load User Data
   const loadUserData = async (userId: string) => {
-    if (!supabase) return;
+    // Guest Mode Handler
+    if (!supabase) {
+        const storedProfile = localStorage.getItem('guest_profile');
+        if (storedProfile) {
+            setProfile(JSON.parse(storedProfile));
+        } else {
+            const newProfile = { id: 'guest', email: 'guest@rizzmaster.ai', credits: DAILY_CREDITS, is_premium: false, last_daily_reset: new Date().toISOString().split('T')[0] };
+            setProfile(newProfile);
+            localStorage.setItem('guest_profile', JSON.stringify(newProfile));
+        }
+        const storedItems = localStorage.getItem('guest_saved_items');
+        setSavedItems(storedItems ? JSON.parse(storedItems) : []);
+        return;
+    }
+
     setDbError(null);
 
     // Fetch Profile
@@ -133,71 +150,101 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
     setResult(null);
     setInputText('');
     setImage(null);
   };
 
-  // 4. Action Handlers utilizing Supabase
+  const handleGuestLogin = () => {
+      const guestUser = { id: 'guest', email: 'guest@rizzmaster.ai' };
+      setSession({ user: guestUser });
+      loadUserData(guestUser.id);
+  };
+
+  // 4. Action Handlers
   const updateCredits = async (newAmount: number) => {
-    if (!supabase || !profile) return;
+    if (!profile) return;
     
     // Optimistic UI update
-    setProfile({ ...profile, credits: newAmount });
+    const updatedProfile = { ...profile, credits: newAmount };
+    setProfile(updatedProfile);
 
-    await supabase
-      .from('profiles')
-      .update({ credits: newAmount })
-      .eq('id', profile.id);
+    if (supabase) {
+        await supabase
+        .from('profiles')
+        .update({ credits: newAmount })
+        .eq('id', profile.id);
+    } else {
+        localStorage.setItem('guest_profile', JSON.stringify(updatedProfile));
+    }
   };
 
   const handleUpgrade = async () => {
-    if (!supabase || !profile) return;
+    if (!profile) return;
     
-    // In a real app, you'd redirect to Stripe Checkout here.
-    // For this demo, we simulate a successful callback:
-    
-    const { data } = await supabase
-      .from('profiles')
-      .update({ is_premium: true })
-      .eq('id', profile.id)
-      .select()
-      .single();
-      
-    if (data) {
-      setProfile(data);
-      setShowPremiumModal(false);
-      alert('Welcome to the Elite Club! 👑');
+    const updatedProfile = { ...profile, is_premium: true };
+    setProfile(updatedProfile);
+    setShowPremiumModal(false);
+    alert('Welcome to the Elite Club! 👑');
+
+    if (supabase) {
+        await supabase
+        .from('profiles')
+        .update({ is_premium: true })
+        .eq('id', profile.id);
+    } else {
+        localStorage.setItem('guest_profile', JSON.stringify(updatedProfile));
     }
   };
 
   const toggleSave = async (content: string, type: 'tease' | 'smooth' | 'chaotic' | 'bio') => {
-    if (!supabase || !profile) return;
+    if (!profile) return;
 
     const exists = savedItems.find(item => item.content === content);
     
     if (exists) {
       // Delete
-      await supabase.from('saved_items').delete().eq('id', exists.id);
-      setSavedItems(prev => prev.filter(item => item.id !== exists.id));
+      if (supabase) {
+          await supabase.from('saved_items').delete().eq('id', exists.id);
+      }
+      const newItems = savedItems.filter(item => item.id !== exists.id);
+      setSavedItems(newItems);
+      if (!supabase) localStorage.setItem('guest_saved_items', JSON.stringify(newItems));
+
     } else {
       // Insert
-      const { data } = await supabase
-        .from('saved_items')
-        .insert([{ user_id: profile.id, content, type }])
-        .select()
-        .single();
-        
-      if (data) {
-        setSavedItems(prev => [data, ...prev]);
+      const newItem: SavedItem = {
+          id: crypto.randomUUID(),
+          user_id: profile.id,
+          content,
+          type,
+          created_at: new Date().toISOString()
+      };
+
+      if (supabase) {
+        const { data } = await supabase
+            .from('saved_items')
+            .insert([{ user_id: profile.id, content, type }])
+            .select()
+            .single();
+        if (data) newItem.id = data.id; // Use DB ID if available
       }
+      
+      const newItems = [newItem, ...savedItems];
+      setSavedItems(newItems);
+      if (!supabase) localStorage.setItem('guest_saved_items', JSON.stringify(newItems));
     }
   };
 
   const handleDeleteSaved = async (id: string) => {
-    if (!supabase) return;
-    await supabase.from('saved_items').delete().eq('id', id);
-    setSavedItems(prev => prev.filter(item => item.id !== id));
+    if (supabase) {
+        await supabase.from('saved_items').delete().eq('id', id);
+    }
+    const newItems = savedItems.filter(item => item.id !== id);
+    setSavedItems(newItems);
+    if (!supabase) localStorage.setItem('guest_saved_items', JSON.stringify(newItems));
   };
 
   // --- Logic Helpers ---
@@ -259,7 +306,7 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error(error);
-      alert('The wingman tripped! Try again.');
+      alert('The wingman tripped! Check API Keys or try again.');
       if (!profile.is_premium) updateCredits(profile.credits + 1);
     } finally {
       setLoading(false);
@@ -313,7 +360,7 @@ const App: React.FC = () => {
 
   // Not Logged In
   if (!session) {
-    return <LoginPage />;
+    return <LoginPage onGuestLogin={handleGuestLogin} />;
   }
 
   // Loading Profile
@@ -364,16 +411,21 @@ const App: React.FC = () => {
 
       {isAdPlaying && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-8">
-          <div className="w-full max-w-md bg-zinc-900 rounded-3xl p-8 text-center border border-white/10 relative overflow-hidden">
+          <div className="w-full max-w-md bg-zinc-900 rounded-3xl p-8 text-center border border-white/10 relative overflow-hidden flex flex-col h-[80vh] justify-center">
              <div className="absolute top-0 left-0 w-full h-1 bg-white/20">
                <div 
                  className="h-full bg-pink-500 transition-all ease-linear w-full" 
                  style={{ width: '0%', transitionDuration: `${AD_DURATION}s` }}
                ></div>
              </div>
-             <div className="text-6xl mb-6 animate-bounce">📺</div>
-             <h2 className="text-2xl font-bold mb-2">Ad Playing...</h2>
-             <div className="text-4xl font-black text-pink-500">{adTimer}s</div>
+             <div className="text-4xl font-black text-pink-500 mb-4">{adTimer}s</div>
+             <p className="text-white/60 mb-4">Support us by viewing this ad to earn free credits!</p>
+             
+             {/* Actual Ad Slot inside the wait modal */}
+             <div className="bg-white/5 rounded-xl border border-white/10 min-h-[250px] flex items-center justify-center">
+                 <AdSenseBanner dataAdSlot={GOOGLE_AD_SLOT_ID} />
+             </div>
+
              <p className="mt-8 text-xs text-white/30 uppercase">Do not close window</p>
           </div>
         </div>
@@ -571,6 +623,14 @@ const App: React.FC = () => {
           )}
         </section>
       </div>
+      
+      {/* Footer Ad Placement */}
+      {!profile.is_premium && (
+         <div className="mt-8 max-w-2xl mx-auto w-full">
+            <AdSenseBanner dataAdSlot={GOOGLE_AD_SLOT_ID} />
+         </div>
+      )}
+
       <Footer className="mt-12 md:mt-20" />
     </div>
   );
