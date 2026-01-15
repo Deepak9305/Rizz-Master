@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RizzResponse | BioResponse | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Modals & Flags
@@ -155,6 +156,7 @@ const App: React.FC = () => {
     setResult(null);
     setInputText('');
     setImage(null);
+    setInputError(null);
   };
 
   const handleGuestLogin = () => {
@@ -277,12 +279,24 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => setImage(reader.result as string);
       reader.readAsDataURL(file);
+      if (inputError) setInputError(null);
     }
   };
 
   const handleGenerate = async () => {
-    if ((!inputText && !image) || !profile) return;
+    if (!profile) return;
     
+    // Input Validation
+    if (mode === InputMode.CHAT && !inputText.trim() && !image) {
+      setInputError("Give me some context! Paste the chat or upload a screenshot.");
+      return;
+    }
+    if (mode === InputMode.BIO && !inputText.trim()) {
+      setInputError("I can't write a bio for a ghost! Tell me about your hobbies, job, or vibes.");
+      return;
+    }
+    setInputError(null);
+
     const hasCredits = profile.credits > 0;
     if (!profile.is_premium && !hasCredits) {
       setShowPremiumModal(true);
@@ -336,7 +350,7 @@ const App: React.FC = () => {
   };
 
   const isSaved = (content: string) => savedItems.some(item => item.content === content);
-  const clear = () => { setInputText(''); setImage(null); setResult(null); };
+  const clear = () => { setInputText(''); setImage(null); setResult(null); setInputError(null); };
 
   // --- Rendering ---
 
@@ -504,7 +518,10 @@ const App: React.FC = () => {
             </div>
             <textarea
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {
+                setInputText(e.target.value);
+                if (inputError) setInputError(null);
+              }}
               placeholder={mode === InputMode.CHAT ? "Paste the convo or describe the vibe..." : "e.g. Hiking, dogs, software engineer..."}
               className="w-full h-32 md:h-40 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm md:text-base focus:ring-2 focus:ring-pink-500/50 focus:outline-none resize-none transition-all placeholder:text-white/20"
               style={{ fontSize: '16px' }}
@@ -532,11 +549,18 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
+
+          {inputError && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center justify-center gap-2 animate-pulse">
+              <span className="text-lg">⚠️</span>
+              <p className="text-sm text-red-200 font-medium">{inputError}</p>
+            </div>
+          )}
           
           {(profile.is_premium || profile.credits > 0) ? (
             <button
               onClick={handleGenerate}
-              disabled={loading || (!inputText && !image)}
+              disabled={loading}
               className={`w-full py-3.5 md:py-4 rounded-2xl font-bold text-base md:text-lg shadow-xl hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
                 profile.is_premium 
                 ? "bg-gradient-to-r from-yellow-500 to-amber-600 text-black" 
