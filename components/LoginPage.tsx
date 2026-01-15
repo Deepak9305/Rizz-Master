@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Footer from './Footer';
 import { supabase } from '../services/supabaseClient';
@@ -155,7 +156,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
 
             <button
               type="submit"
-              disabled={isLoading || isGoogleLoading || !supabase}
+              disabled={isLoading || isGoogleLoading}
               className="w-full rizz-gradient py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-4 md:mt-6"
             >
               {isLoading ? "Please wait..." : (isSignUp ? "Sign Up" : "Log In")}
@@ -179,7 +180,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
 
           <button
             onClick={handleGoogleLogin}
-            disabled={isLoading || isGoogleLoading || !supabase}
+            disabled={isLoading || isGoogleLoading}
             className="w-full bg-white text-gray-900 py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50 relative z-10 flex items-center justify-center gap-3"
           >
             {isGoogleLoading ? "Connecting..." : (

@@ -3,9 +3,9 @@ export interface RizzResponse {
   tease: string;
   smooth: string;
   chaotic: string;
-  analysis?: string;
-  loveScore?: number;
-  potentialStatus?: string;
+  analysis: string;
+  loveScore: number;
+  potentialStatus: string;
 }
 
 export interface BioResponse {

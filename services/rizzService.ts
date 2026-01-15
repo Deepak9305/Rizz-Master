@@ -26,10 +26,14 @@ export const generateRizz = async (inputText: string, imageData?: string): Promi
   const contentParts: any[] = [{ text: `Analyze this chat. Provide 3 replies AND a romantic potential analysis. Input: ${inputText}` }];
   
   if (imageData) {
+    // Extract correct MIME type from base64 string (e.g. data:image/png;base64,...)
+    const mimeType = imageData.match(/data:([^;]+);base64/)?.[1] || 'image/jpeg';
+    const data = imageData.split(',')[1];
+
     contentParts.push({
       inlineData: {
-        mimeType: 'image/jpeg',
-        data: imageData.split(',')[1]
+        mimeType,
+        data
       }
     });
   }
@@ -50,7 +54,7 @@ export const generateRizz = async (inputText: string, imageData?: string): Promi
           loveScore: { type: Type.INTEGER, description: "0-100 score of romantic potential." },
           potentialStatus: { type: Type.STRING, description: "Witty status label for the connection." }
         },
-        required: ["tease", "smooth", "chaotic", "loveScore", "potentialStatus"]
+        required: ["tease", "smooth", "chaotic", "analysis", "loveScore", "potentialStatus"]
       }
     }
   });
