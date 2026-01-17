@@ -7,16 +7,16 @@ import LoginPage from './components/LoginPage';
 import Footer from './components/Footer';
 import PremiumModal from './components/PremiumModal';
 import SavedModal from './components/SavedModal';
-import AdSenseBanner from './components/AdSenseBanner';
+import SplashScreen from './components/SplashScreen';
 
 const DAILY_CREDITS = 5;
-const REWARD_CREDITS = 5;
+const REWARD_CREDITS = 3;
 const AD_DURATION = 30;
 
-// TODO: Replace this with your actual Display Ad Unit ID from Google AdSense Dashboard
-const GOOGLE_AD_SLOT_ID = "0000000000"; 
-
 const App: React.FC = () => {
+  // UI State
+  const [showSplash, setShowSplash] = useState(true);
+
   // Auth State
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -297,8 +297,14 @@ const App: React.FC = () => {
     }
     setInputError(null);
 
-    const hasCredits = profile.credits > 0;
+    // Calculate cost: 2 for images, 1 for text only
+    const cost = (mode === InputMode.CHAT && image) ? 2 : 1;
+
+    const hasCredits = profile.credits >= cost;
     if (!profile.is_premium && !hasCredits) {
+      if (profile.credits > 0) {
+        alert(`Screenshot analysis costs ${cost} credits. You only have ${profile.credits}.`);
+      }
       setShowPremiumModal(true);
       return;
     }
@@ -307,7 +313,7 @@ const App: React.FC = () => {
     try {
       // Deduct Credit only if not premium
       if (!profile.is_premium) {
-        updateCredits(profile.credits - 1);
+        updateCredits(profile.credits - cost);
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
@@ -321,7 +327,8 @@ const App: React.FC = () => {
     } catch (error) {
       console.error(error);
       alert('The wingman tripped! Check API Keys or try again.');
-      if (!profile.is_premium) updateCredits(profile.credits + 1);
+      // Refund credits if it failed
+      if (!profile.is_premium) updateCredits(profile.credits + cost);
     } finally {
       setLoading(false);
     }
@@ -351,8 +358,14 @@ const App: React.FC = () => {
 
   const isSaved = (content: string) => savedItems.some(item => item.content === content);
   const clear = () => { setInputText(''); setImage(null); setResult(null); setInputError(null); };
+  
+  const currentCost = (mode === InputMode.CHAT && image) ? 2 : 1;
 
   // --- Rendering ---
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   if (isSessionBlocked) {
     return (
@@ -435,9 +448,9 @@ const App: React.FC = () => {
              <div className="text-4xl font-black text-pink-500 mb-4">{adTimer}s</div>
              <p className="text-white/60 mb-4">Support us by viewing this ad to earn free credits!</p>
              
-             {/* Actual Ad Slot inside the wait modal */}
+             {/* Actual Ad Slot inside the wait modal - Placeholder for now */}
              <div className="bg-white/5 rounded-xl border border-white/10 min-h-[250px] flex items-center justify-center">
-                 <AdSenseBanner dataAdSlot={GOOGLE_AD_SLOT_ID} />
+                 <div className="text-white/20 text-sm">Ad Placeholder</div>
              </div>
 
              <p className="mt-8 text-xs text-white/30 uppercase">Do not close window</p>
@@ -576,13 +589,13 @@ const App: React.FC = () => {
                   {profile.is_premium ? "Generating Fast..." : "Cooking..."}
                 </span>
               ) : (
-                profile.is_premium ? "Generate Rizz (VIP)" : "Generate Rizz (1 ⚡)"
+                profile.is_premium ? "Generate Rizz (VIP)" : `Generate Rizz (${currentCost} ⚡)`
               )}
             </button>
           ) : (
             <div className="grid grid-cols-2 gap-3">
              <button onClick={handleWatchAd} className="bg-white/10 border border-white/10 py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base hover:bg-white/20 active:scale-[0.98] transition-all flex flex-col items-center justify-center">
-              <span className="text-xl mb-1">📺</span> <span>Watch Ad (+5)</span>
+              <span className="text-xl mb-1">📺</span> <span>Watch Ad (+{REWARD_CREDITS})</span>
             </button>
             <button onClick={() => setShowPremiumModal(true)} className="bg-gradient-to-r from-yellow-500 to-amber-600 text-black py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base shadow-xl hover:brightness-110 active:scale-[0.98] transition-all flex flex-col items-center justify-center animate-pulse">
               <span className="text-xl mb-1">👑</span> <span>Go Unlimited</span>
@@ -648,12 +661,7 @@ const App: React.FC = () => {
         </section>
       </div>
       
-      {/* Footer Ad Placement */}
-      {!profile.is_premium && (
-         <div className="mt-8 max-w-2xl mx-auto w-full">
-            <AdSenseBanner dataAdSlot={GOOGLE_AD_SLOT_ID} />
-         </div>
-      )}
+      {/* Footer Ad Placement Removed */}
 
       <Footer className="mt-12 md:mt-20" />
     </div>
