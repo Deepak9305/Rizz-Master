@@ -52,16 +52,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     };
   }, [onFinish]);
 
-  // Generate random particles for the background
-  const particles = Array.from({ length: 20 }).map((_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    animationDuration: `${Math.random() * 5 + 5}s`,
-    animationDelay: `${Math.random() * 2}s`,
-    opacity: Math.random() * 0.3 + 0.1,
-    size: Math.random() * 4 + 2,
-  }));
-
   return (
     <div 
       className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#050505] overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -71,29 +61,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       {/* 1. Background Atmosphere */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-rose-900/20 via-black to-black" />
       
-      {/* 2. Floating Particles (Bokeh) */}
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute bottom-[-20px] bg-rose-500 rounded-full blur-[1px]"
-          style={{
-            left: p.left,
-            width: `${p.size}px`,
-            height: `${p.size}px`,
-            opacity: p.opacity,
-            animation: `floatUp ${p.animationDuration} ease-in-out infinite`,
-            animationDelay: p.animationDelay,
-          }}
-        />
-      ))}
-
       <style>{`
-        @keyframes floatUp {
-          0% { transform: translateY(0); opacity: 0; }
-          20% { opacity: var(--opacity); }
-          80% { opacity: var(--opacity); }
-          100% { transform: translateY(-100vh); opacity: 0; }
-        }
         @keyframes drawLine {
           0% { stroke-dashoffset: 600; opacity: 0; }
           10% { opacity: 1; }

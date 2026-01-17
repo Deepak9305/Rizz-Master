@@ -1,5 +1,14 @@
+import React, { useState, useEffect } from 'react';
 
-import React, { useState } from 'react';
+// -----------------------------------------------------------------------------
+// GOOGLE PLAY BILLING / IAP CONFIGURATION
+// -----------------------------------------------------------------------------
+// 1. Install RevenueCat: npm install @revenuecat/purchases-capacitor
+// 2. Import it: 
+//    import { Purchases, PurchasesPackage, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+// -----------------------------------------------------------------------------
+
+const REVENUECAT_PUBLIC_KEY = 'goog_your_revenuecat_public_key_here'; // TODO: REPLACE THIS
 
 interface PremiumModalProps {
   onClose: () => void;
@@ -8,14 +17,99 @@ interface PremiumModalProps {
 
 const PremiumModal: React.FC<PremiumModalProps> = ({ onClose, onUpgrade }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentOffering, setCurrentOffering] = useState<any>(null); // Type: PurchasesPackage | null
+  const [priceString, setPriceString] = useState("$4.99"); // Fallback price
 
-  const handleSubscribe = () => {
+  // Initial Setup & Fetch Products
+  useEffect(() => {
+    const initIAP = async () => {
+      // NOTE: This code block is commented out to prevent errors in the web preview.
+      // Uncomment and use this logic when compiling your Native App.
+      /*
+      try {
+        if (window.Capacitor?.isNativePlatform()) {
+            await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+            await Purchases.configure({ apiKey: REVENUECAT_PUBLIC_KEY });
+            
+            const offerings = await Purchases.getOfferings();
+            if (offerings.current !== null && offerings.current.availablePackages.length !== 0) {
+              const pkg = offerings.current.availablePackages[0];
+              setCurrentOffering(pkg);
+              setPriceString(pkg.product.priceString);
+            }
+        }
+      } catch (error) {
+        console.error("IAP Init Error:", error);
+      }
+      */
+    };
+    initIAP();
+  }, []);
+
+  const handleSubscribe = async () => {
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
+
+    try {
+      // ---------------------------------------------------------
+      // REAL NATIVE PURCHASE LOGIC
+      // ---------------------------------------------------------
+      /*
+      if (currentOffering) {
+        const { customerInfo } = await Purchases.purchasePackage(currentOffering);
+        if (customerInfo.entitlements.active['pro_access']) {
+            onUpgrade(); // Success!
+            return;
+        }
+      }
+      */
+     
+      // ---------------------------------------------------------
+      // SIMULATION (FOR WEB TESTING)
+      // ---------------------------------------------------------
+      console.log("Simulating Google Play Billing flow...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // On success:
       onUpgrade();
-    }, 2000);
+
+    } catch (error: any) {
+      if (error.userCancelled) {
+        console.log("User cancelled");
+      } else {
+        console.error("Purchase failed", error);
+        alert("Transaction failed. Please try again.");
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsProcessing(true);
+    try {
+      // ---------------------------------------------------------
+      // REAL RESTORE LOGIC
+      // ---------------------------------------------------------
+      /*
+      const customerInfo = await Purchases.restorePurchases();
+      if (customerInfo.entitlements.active['pro_access']) {
+         onUpgrade();
+         alert("Purchases restored successfully!");
+      } else {
+         alert("No active subscriptions found for this Google account.");
+      }
+      */
+
+      // SIMULATION:
+      setTimeout(() => {
+        setIsProcessing(false);
+        alert("Simulation: No previous Google Play purchases found.");
+      }, 1500);
+    } catch (error) {
+        console.error("Restore failed", error);
+        alert("Could not restore purchases. Check your internet connection.");
+        setIsProcessing(false);
+    }
   };
 
   return (
@@ -88,29 +182,39 @@ const PremiumModal: React.FC<PremiumModalProps> = ({ onClose, onUpgrade }) => {
             </div>
           </div>
 
-          <button
-            onClick={handleSubscribe}
-            disabled={isProcessing}
-            className="w-full py-4 rounded-xl font-bold text-lg text-black bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            {isProcessing ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Processing...
-              </>
-            ) : (
-              <>
-                <span>Unlock Unlimited Access</span>
-                <span className="text-sm font-normal opacity-70">($4.99/mo)</span>
-              </>
-            )}
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={handleSubscribe}
+              disabled={isProcessing}
+              className="w-full py-4 rounded-xl font-bold text-lg text-black bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <span>Unlock Unlimited Access</span>
+                  <span className="text-sm font-normal opacity-70">({priceString}/mo)</span>
+                </>
+              )}
+            </button>
+
+            <button 
+                onClick={handleRestore}
+                disabled={isProcessing}
+                className="w-full py-2 text-white/40 hover:text-white text-xs uppercase tracking-widest font-bold transition-colors"
+            >
+                Restore Purchases (Google Play)
+            </button>
+          </div>
           
           <p className="text-center text-[10px] text-white/30 mt-4">
-            Recurring billing. Cancel anytime.
+            Payments processed securely by Google Play. Cancel anytime in Play Store settings.
           </p>
         </div>
       </div>

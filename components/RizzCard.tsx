@@ -1,4 +1,5 @@
 import React from 'react';
+import { Native } from '../services/nativeFeatures';
 
 interface RizzCardProps {
   label: string;
@@ -12,6 +13,7 @@ interface RizzCardProps {
 
 const RizzCard: React.FC<RizzCardProps> = ({ label, content, icon, color, isSaved, onSave, onShare }) => {
   const copyToClipboard = () => {
+    Native.hapticMedium();
     navigator.clipboard.writeText(content);
     alert('Copied to clipboard!');
   };

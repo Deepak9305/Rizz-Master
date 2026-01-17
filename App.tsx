@@ -2,16 +2,22 @@ import React, { useState, useRef, useEffect } from 'react';
 import { generateRizz, generateBio } from './services/rizzService';
 import { InputMode, RizzResponse, BioResponse, SavedItem, UserProfile } from './types';
 import { supabase } from './services/supabaseClient';
+import { Native } from './services/nativeFeatures'; // Import Native Helper
 import RizzCard from './components/RizzCard';
 import LoginPage from './components/LoginPage';
 import Footer from './components/Footer';
 import PremiumModal from './components/PremiumModal';
 import SavedModal from './components/SavedModal';
 import SplashScreen from './components/SplashScreen';
+import SettingsModal from './components/SettingsModal';
+
+// --- ADMOB CONFIGURATION ---
+// TODO: Replace this with your actual AdMob Rewarded Video Unit ID from the AdMob Console
+const ADMOB_REWARDED_ID = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
 
 const DAILY_CREDITS = 5;
 const REWARD_CREDITS = 3;
-const AD_DURATION = 30;
+const AD_DURATION = 30; // Duration for the simulation fallback
 
 const App: React.FC = () => {
   // UI State
@@ -36,11 +42,15 @@ const App: React.FC = () => {
   const [adTimer, setAdTimer] = useState(0);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showSavedModal, setShowSavedModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [isSessionBlocked, setIsSessionBlocked] = useState(false);
 
-  // 1. Session & Auth Listener
+  // 1. Initialize Native Features & Session
   useEffect(() => {
+    // Initialize Native Plugins (Status Bar, Orientation, etc.)
+    Native.initialize();
+
     if (!supabase) return;
 
     // Get initial session
@@ -157,9 +167,41 @@ const App: React.FC = () => {
     setInputText('');
     setImage(null);
     setInputError(null);
+    setShowSettingsModal(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!profile) return;
+    
+    // 1. Guest Mode
+    if (!supabase) {
+        localStorage.removeItem('guest_profile');
+        localStorage.removeItem('guest_saved_items');
+        window.location.reload();
+        return;
+    }
+
+    // 2. Authenticated Mode
+    try {
+        setLoading(true);
+        // Delete User Data from public tables
+        await supabase.from('saved_items').delete().eq('user_id', profile.id);
+        await supabase.from('profiles').delete().eq('id', profile.id);
+        
+        // Note: Deleting the actual auth user requires Supabase Admin rights or an RPC function.
+        // We delete the data we can access and sign out.
+        
+        await handleLogout();
+        alert("Your account data has been deleted.");
+    } catch (error) {
+        console.error("Delete account error:", error);
+        alert("Failed to delete account completely. Please contact support.");
+        setLoading(false);
+    }
   };
 
   const handleGuestLogin = () => {
+      Native.hapticSuccess(); // Haptic feedback
       const guestUser = { id: 'guest', email: 'guest@rizzmaster.ai' };
       setSession({ user: guestUser });
       loadUserData(guestUser.id);
@@ -185,6 +227,7 @@ const App: React.FC = () => {
 
   const handleUpgrade = async () => {
     if (!profile) return;
+    Native.hapticSuccess(); // Haptic feedback
     
     const updatedProfile = { ...profile, is_premium: true };
     setProfile(updatedProfile);
@@ -202,6 +245,7 @@ const App: React.FC = () => {
   };
 
   const toggleSave = async (content: string, type: 'tease' | 'smooth' | 'chaotic' | 'bio') => {
+    Native.hapticMedium(); // Haptic feedback
     if (!profile) return;
 
     const exists = savedItems.find(item => item.content === content);
@@ -241,6 +285,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteSaved = async (id: string) => {
+    Native.hapticLight();
     if (supabase) {
         await supabase.from('saved_items').delete().eq('id', id);
     }
@@ -259,23 +304,14 @@ const App: React.FC = () => {
   };
 
   const handleShare = async (content: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Rizz Master Reply',
-          text: content,
-          url: window.location.href
-        });
-      } catch (err) { console.log('Share canceled'); }
-    } else {
-      navigator.clipboard.writeText(content);
-      alert('Link copied to clipboard!');
-    }
+    Native.hapticLight();
+    Native.share('Rizz Master Reply', content);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      Native.hapticLight();
       const reader = new FileReader();
       reader.onloadend = () => setImage(reader.result as string);
       reader.readAsDataURL(file);
@@ -289,10 +325,12 @@ const App: React.FC = () => {
     // Input Validation
     if (mode === InputMode.CHAT && !inputText.trim() && !image) {
       setInputError("Give me some context! Paste the chat or upload a screenshot.");
+      Native.hapticLight(); // Error vibration
       return;
     }
     if (mode === InputMode.BIO && !inputText.trim()) {
       setInputError("I can't write a bio for a ghost! Tell me about your hobbies, job, or vibes.");
+      Native.hapticLight(); // Error vibration
       return;
     }
     setInputError(null);
@@ -309,6 +347,7 @@ const App: React.FC = () => {
       return;
     }
 
+    Native.hapticMedium(); // Start generation vibration
     setLoading(true);
     try {
       // Deduct Credit only if not premium
@@ -320,9 +359,11 @@ const App: React.FC = () => {
       if (mode === InputMode.CHAT) {
         const res = await generateRizz(inputText, image || undefined);
         setResult(res);
+        Native.hapticSuccess(); // Success vibration
       } else {
         const res = await generateBio(inputText);
         setResult(res);
+        Native.hapticSuccess(); // Success vibration
       }
     } catch (error) {
       console.error(error);
@@ -334,8 +375,31 @@ const App: React.FC = () => {
     }
   };
 
-  const handleWatchAd = () => {
+  const handleWatchAd = async () => {
     setShowPremiumModal(false);
+
+    // -------------------------------------------------------------------------
+    // NATIVE ADMOB IMPLEMENTATION (Instructions)
+    // -------------------------------------------------------------------------
+    // Since this is a native app, use a plugin like 'admob-plus-cordova' or '@capacitor-community/admob'.
+    //
+    // Example Logic:
+    // 1. Initialize the ad:
+    //    await AdMob.prepareRewardVideoAd({ adId: ADMOB_REWARDED_ID });
+    //
+    // 2. Show the ad:
+    //    await AdMob.showRewardVideoAd();
+    //
+    // 3. Handle Reward (Pseudo-code):
+    //    document.addEventListener('admob.reward_video.reward', () => {
+    //        updateCredits((profile?.credits || 0) + REWARD_CREDITS);
+    //        alert(`+${REWARD_CREDITS} Credits Added!`);
+    //    });
+    //
+    // -------------------------------------------------------------------------
+    // SIMULATION (For Dev/Browser):
+    // -------------------------------------------------------------------------
+    
     setIsAdPlaying(true);
     setAdTimer(AD_DURATION); 
 
@@ -352,12 +416,16 @@ const App: React.FC = () => {
     setTimeout(() => {
       setIsAdPlaying(false);
       updateCredits((profile?.credits || 0) + REWARD_CREDITS);
+      Native.hapticSuccess(); // Ad finished vibration
       alert(`+${REWARD_CREDITS} Credits Added!`);
     }, AD_DURATION * 1000);
   };
 
   const isSaved = (content: string) => savedItems.some(item => item.content === content);
-  const clear = () => { setInputText(''); setImage(null); setResult(null); setInputError(null); };
+  const clear = () => { 
+      Native.hapticLight();
+      setInputText(''); setImage(null); setResult(null); setInputError(null); 
+  };
   
   const currentCost = (mode === InputMode.CHAT && image) ? 2 : 1;
 
@@ -428,6 +496,16 @@ const App: React.FC = () => {
         />
       )}
 
+      {showSettingsModal && (
+        <SettingsModal 
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          userEmail={profile.email}
+          onLogout={handleLogout}
+          onDeleteAccount={handleDeleteAccount}
+        />
+      )}
+
       <SavedModal 
         isOpen={showSavedModal} 
         onClose={() => setShowSavedModal(false)}
@@ -448,27 +526,35 @@ const App: React.FC = () => {
              <div className="text-4xl font-black text-pink-500 mb-4">{adTimer}s</div>
              <p className="text-white/60 mb-4">Support us by viewing this ad to earn free credits!</p>
              
-             {/* Actual Ad Slot inside the wait modal - Placeholder for now */}
-             <div className="bg-white/5 rounded-xl border border-white/10 min-h-[250px] flex items-center justify-center">
-                 <div className="text-white/20 text-sm">Ad Placeholder</div>
+             {/* AdMob Simulation / Placeholder */}
+             <div className="bg-white/5 rounded-xl border border-white/10 min-h-[250px] flex flex-col items-center justify-center p-6 gap-3">
+                <span className="text-5xl">📱</span>
+                <h3 className="text-xl font-bold text-white">AdMob Native Ad</h3>
+                <p className="text-white/40 text-sm max-w-[200px]">
+                   A full-screen rewarded video will appear here in the native app.
+                </p>
+                <div className="mt-4 px-3 py-1 bg-black/50 rounded border border-white/5 font-mono text-[10px] text-green-400">
+                    ID: {ADMOB_REWARDED_ID.substring(0, 15)}...
+                </div>
              </div>
 
-             <p className="mt-8 text-xs text-white/30 uppercase">Do not close window</p>
+             <p className="mt-8 text-xs text-white/30 uppercase">Simulation Mode</p>
           </div>
         </div>
       )}
 
       <nav className="flex justify-between items-center mb-8 md:mb-12">
         <button 
-             onClick={handleLogout} 
-             className="px-3 py-1.5 text-xs md:text-sm text-white/40 hover:text-white hover:bg-white/5 rounded-lg transition-all uppercase tracking-widest font-medium border border-transparent hover:border-white/10 flex items-center gap-1"
+             onClick={() => { Native.hapticLight(); setShowSettingsModal(true); }}
+             className="px-3 py-1.5 text-xs md:text-sm text-white/40 hover:text-white hover:bg-white/5 rounded-lg transition-all uppercase tracking-widest font-medium border border-transparent hover:border-white/10 flex items-center gap-2"
         >
-             <span className="text-lg">←</span> <span className="hidden md:inline">Logout</span>
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+             <span className="hidden md:inline">Settings</span>
         </button>
 
         <div className="flex items-center gap-2 md:gap-3">
            <button 
-              onClick={() => setShowSavedModal(true)}
+              onClick={() => { Native.hapticLight(); setShowSavedModal(true); }}
               className="p-2 md:px-4 md:py-2 bg-white/5 hover:bg-white/10 rounded-full flex items-center gap-1.5 transition-all border border-white/5"
            >
               <span className="text-pink-500 text-base md:text-lg">♥</span>
@@ -477,7 +563,7 @@ const App: React.FC = () => {
 
            {!profile.is_premium && (
              <button 
-                onClick={() => setShowPremiumModal(true)}
+                onClick={() => { Native.hapticLight(); setShowPremiumModal(true); }}
                 className="hidden md:flex px-4 py-2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black text-xs font-bold rounded-full items-center gap-1 hover:brightness-110 transition-all"
              >
                 <span>👑</span> Go Premium
@@ -597,7 +683,7 @@ const App: React.FC = () => {
              <button onClick={handleWatchAd} className="bg-white/10 border border-white/10 py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base hover:bg-white/20 active:scale-[0.98] transition-all flex flex-col items-center justify-center">
               <span className="text-xl mb-1">📺</span> <span>Watch Ad (+{REWARD_CREDITS})</span>
             </button>
-            <button onClick={() => setShowPremiumModal(true)} className="bg-gradient-to-r from-yellow-500 to-amber-600 text-black py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base shadow-xl hover:brightness-110 active:scale-[0.98] transition-all flex flex-col items-center justify-center animate-pulse">
+            <button onClick={() => { Native.hapticLight(); setShowPremiumModal(true); }} className="bg-gradient-to-r from-yellow-500 to-amber-600 text-black py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base shadow-xl hover:brightness-110 active:scale-[0.98] transition-all flex flex-col items-center justify-center animate-pulse">
               <span className="text-xl mb-1">👑</span> <span>Go Unlimited</span>
             </button>
             </div>
@@ -605,7 +691,7 @@ const App: React.FC = () => {
 
           {!profile.is_premium && (
             <p className="text-center text-[10px] md:text-xs text-white/30 mt-3 md:mt-4">
-              {profile.credits} daily credits remaining. <span className="text-yellow-500/80 cursor-pointer hover:underline" onClick={() => setShowPremiumModal(true)}>Upgrade.</span>
+              {profile.credits} daily credits remaining. <span className="text-yellow-500/80 cursor-pointer hover:underline" onClick={() => { Native.hapticLight(); setShowPremiumModal(true); }}>Upgrade.</span>
             </p>
           )}
         </section>
@@ -655,13 +741,11 @@ const App: React.FC = () => {
               </div>
               <p className="text-lg md:text-xl leading-relaxed font-medium mb-6 md:mb-8 text-white">{result.bio}</p>
               <div className="p-4 bg-white/5 rounded-2xl border border-white/5 mb-4"><h4 className="text-[10px] uppercase font-bold text-pink-400 mb-1">Why it works</h4><p className="text-xs md:text-sm text-white/60">{result.analysis}</p></div>
-              <button onClick={() => { navigator.clipboard.writeText(result.bio); alert('Bio copied!'); }} className="w-full py-3 border border-white/20 rounded-xl hover:bg-white/5 transition-colors text-sm font-medium flex items-center justify-center gap-2"><span>📋</span> Copy Bio</button>
+              <button onClick={() => { Native.hapticMedium(); navigator.clipboard.writeText(result.bio); alert('Bio copied!'); }} className="w-full py-3 border border-white/20 rounded-xl hover:bg-white/5 transition-colors text-sm font-medium flex items-center justify-center gap-2"><span>📋</span> Copy Bio</button>
             </div>
           )}
         </section>
       </div>
-      
-      {/* Footer Ad Placement Removed */}
 
       <Footer className="mt-12 md:mt-20" />
     </div>
