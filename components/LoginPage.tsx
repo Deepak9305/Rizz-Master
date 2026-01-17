@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import Footer from './Footer';
+import Logo from './Logo';
 import { supabase } from '../services/supabaseClient';
 
 const GoogleIcon = () => (
@@ -49,21 +50,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
     
     try {
       if (isSignUp) {
-        // Sign Up Flow
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+        const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setSuccessMsg("Account created! Check your email to confirm.");
       } else {
-        // Sign In Flow
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Successful login will be handled by the onAuthStateChange in App.tsx
       }
     } catch (error: any) {
       setErrorMsg(error.message || "Authentication failed");
@@ -80,9 +72,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
     setIsGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
+      options: { redirectTo: window.location.origin }
     });
     if (error) setErrorMsg(error.message);
     setIsGoogleLoading(false);
@@ -93,81 +83,50 @@ const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
       <div className="flex-grow flex flex-col w-full p-4">
         
         <div className="glass w-full max-w-md p-6 md:p-8 rounded-3xl border border-white/10 relative overflow-hidden shadow-2xl z-10 m-auto my-8">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 blur-3xl rounded-full translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
-          <div className="text-center mb-8 md:mb-10 relative z-10">
-            <div className="text-5xl md:text-6xl mb-4 animate-bounce">🔐</div>
-            <h1 className="text-3xl md:text-4xl font-extrabold mb-2 tracking-tighter rizz-gradient bg-clip-text text-transparent">
-              RIZZ MASTER
-            </h1>
-            <p className="text-white/60 font-medium text-sm md:text-base">Unlock your dating potential.</p>
+          {/* Logo Integration */}
+          <div className="mb-8 md:mb-10 relative z-10">
+             <Logo size="lg" />
+             <p className="text-center text-white/60 font-medium text-sm md:text-base mt-2">Unlock your dating potential.</p>
           </div>
 
           {!supabase && (
             <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-center">
               <p className="text-yellow-200 text-sm font-bold mb-3">Backend Not Configured</p>
-              <button 
-                onClick={onGuestLogin}
-                className="w-full bg-yellow-500 text-black py-3 rounded-lg font-bold text-sm hover:brightness-110 transition-all shadow-lg"
-              >
+              <button onClick={onGuestLogin} className="w-full bg-yellow-500 text-black py-3 rounded-lg font-bold text-sm hover:brightness-110 transition-all shadow-lg">
                 Continue as Guest
               </button>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5 relative z-10">
-            {errorMsg && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center">
-                {errorMsg}
-              </div>
-            )}
-            {successMsg && (
-              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm text-center">
-                {successMsg}
-              </div>
-            )}
+            {errorMsg && <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center">{errorMsg}</div>}
+            {successMsg && <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm text-center">{successMsg}</div>}
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-white/50 mb-2">Email</label>
               <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 md:p-4 text-white focus:ring-2 focus:ring-pink-500/50 focus:outline-none transition-all placeholder:text-white/20 text-base"
-                placeholder="smooth_operator@example.com"
-                style={{ fontSize: '16px' }} 
+                placeholder="smooth_operator@example.com" style={{ fontSize: '16px' }} 
               />
             </div>
             
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-white/50 mb-2">Password</label>
               <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 md:p-4 text-white focus:ring-2 focus:ring-pink-500/50 focus:outline-none transition-all placeholder:text-white/20 text-base"
-                placeholder="••••••••"
-                style={{ fontSize: '16px' }} 
+                placeholder="••••••••" style={{ fontSize: '16px' }} 
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading || isGoogleLoading}
-              className="w-full rizz-gradient py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-4 md:mt-6"
-            >
+            <button type="submit" disabled={isLoading || isGoogleLoading} className="w-full rizz-gradient py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-4 md:mt-6">
               {isLoading ? "Please wait..." : (isSignUp ? "Sign Up" : "Log In")}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <button 
-              onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(''); setSuccessMsg(''); }}
-              className="text-white/50 hover:text-white text-sm transition-colors"
-            >
+            <button onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(''); setSuccessMsg(''); }} className="text-white/50 hover:text-white text-sm transition-colors">
               {isSignUp ? "Already have an account? Log In" : "Need an account? Sign Up"}
             </button>
           </div>
@@ -178,17 +137,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onGuestLogin }) => {
             <div className="h-px bg-white/10 flex-1" />
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={isLoading || isGoogleLoading}
-            className="w-full bg-white text-gray-900 py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50 relative z-10 flex items-center justify-center gap-3"
-          >
-            {isGoogleLoading ? "Connecting..." : (
-              <>
-                <GoogleIcon />
-                <span>Continue with Google</span>
-              </>
-            )}
+          <button onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading} className="w-full bg-white text-gray-900 py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50 relative z-10 flex items-center justify-center gap-3">
+            {isGoogleLoading ? "Connecting..." : <><GoogleIcon /><span>Continue with Google</span></>}
           </button>
         </div>
         

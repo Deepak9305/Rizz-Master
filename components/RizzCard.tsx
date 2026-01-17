@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Native } from '../services/nativeFeatures';
 
@@ -9,9 +10,10 @@ interface RizzCardProps {
   isSaved?: boolean;
   onSave?: () => void;
   onShare?: () => void;
+  onReport?: () => void; // New prop
 }
 
-const RizzCard: React.FC<RizzCardProps> = ({ label, content, icon, color, isSaved, onSave, onShare }) => {
+const RizzCard: React.FC<RizzCardProps> = ({ label, content, icon, color, isSaved, onSave, onShare, onReport }) => {
   const copyToClipboard = () => {
     Native.hapticMedium();
     navigator.clipboard.writeText(content);
@@ -32,6 +34,17 @@ const RizzCard: React.FC<RizzCardProps> = ({ label, content, icon, color, isSave
         </div>
 
         <div className="flex gap-2 relative z-20">
+          {/* Report Button */}
+          {onReport && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onReport(); }}
+              className="p-1.5 text-white/20 hover:text-red-400 hover:bg-white/10 rounded-full transition-all"
+              title="Report"
+            >
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21v-8a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 9l-3 3-3-3" /></svg>
+            </button>
+          )}
+
           {onShare && (
             <button 
               onClick={(e) => { e.stopPropagation(); onShare(); }}

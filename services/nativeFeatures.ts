@@ -5,6 +5,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Share } from '@capacitor/share';
+import { RateApp } from 'capacitor-rate-app'; // Ensure you run: npm install capacitor-rate-app
 
 // Helper to check if we are running natively
 const isNative = Capacitor.isNativePlatform();
@@ -64,6 +65,16 @@ export const Native = {
         await navigator.clipboard.writeText(text);
         alert('Copied to clipboard!');
       }
+    }
+  },
+
+  // --- IN-APP REVIEW ---
+  requestReview: async () => {
+    if (!isNative) return;
+    try {
+        await RateApp.requestReview();
+    } catch (e) {
+        console.warn('Rate App failed', e);
     }
   }
 };
